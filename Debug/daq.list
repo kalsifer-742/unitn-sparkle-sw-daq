@@ -27,25 +27,25 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000030  00000000  00000000  0000401c  2**0
                   CONTENTS, READONLY
- 12 .debug_info   00008087  00000000  00000000  0000404c  2**0
+ 12 .debug_info   0000806f  00000000  00000000  0000404c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 000017a0  00000000  00000000  0000c0d3  2**0
+ 13 .debug_abbrev 00001773  00000000  00000000  0000c0bb  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00000840  00000000  00000000  0000d878  2**3
+ 14 .debug_aranges 00000838  00000000  00000000  0000d830  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_rnglists 0000062d  00000000  00000000  0000e0b8  2**0
+ 15 .debug_rnglists 00000627  00000000  00000000  0000e068  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  0002390e  00000000  00000000  0000e6e5  2**0
+ 16 .debug_macro  000241c2  00000000  00000000  0000e68f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000866b  00000000  00000000  00031ff3  2**0
+ 17 .debug_line   00008960  00000000  00000000  00032851  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000e16fb  00000000  00000000  0003a65e  2**0
+ 18 .debug_str    000e4839  00000000  00000000  0003b1b1  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  0011bd59  2**0
+ 19 .comment      00000043  00000000  00000000  0011f9ea  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00002064  00000000  00000000  0011bd9c  2**2
+ 20 .debug_frame  0000203c  00000000  00000000  0011fa30  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000054  00000000  00000000  0011de00  2**0
+ 21 .debug_line_str 00000054  00000000  00000000  00121a6c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -120,11 +120,11 @@ int main(void)
  8000238:	f000 f8aa 	bl	8000390 <MX_GPIO_Init>
   MX_SPI1_Init();
  800023c:	f000 f86e 	bl	800031c <MX_SPI1_Init>
-    // }
 
-    // HAL_SPI_Transmit(&hspi1, tx_buffer, 4, 1000);
-    // HAL_Delay(100);
-
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
     if (HAL_SPI_Receive(&hspi1, rx_buffer, 4, HAL_MAX_DELAY) == HAL_OK)
  8000240:	f04f 33ff 	mov.w	r3, #4294967295	@ 0xffffffff
  8000244:	2204      	movs	r2, #4
@@ -135,7 +135,6 @@ int main(void)
  8000250:	2b00      	cmp	r3, #0
  8000252:	d1f5      	bne.n	8000240 <main+0x14>
     {
-//      HAL_Delay(100);
       if (strcmp(rx_buffer, "ping") == 0)
  8000254:	4909      	ldr	r1, [pc, #36]	@ (800027c <main+0x50>)
  8000256:	4807      	ldr	r0, [pc, #28]	@ (8000274 <main+0x48>)

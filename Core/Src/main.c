@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,10 +57,7 @@ static void MX_SPI1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
-{
-//  HAL_SPI_Transmit_IT(&hspi1, tx_buffer, sizeof(tx_buffer));
-}
+
 /* USER CODE END 0 */
 
 /**
@@ -94,32 +91,18 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-//  HAL_SPI_TransmitReceive(&hspi1, tx_buffer, rx_buffer, 4, 10000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    // strcpy(tx_buffer, "pong");
-
-    // HAL_SPI_Receive(&hspi1, rx_buffer, 4, 1000);
-    // HAL_Delay(100);
-
-    // if(strcmp(rx_buffer, "ping") != 0) {
-    //   strcpy(tx_buffer, "errr");
-    // }
-
-    // HAL_SPI_Transmit(&hspi1, tx_buffer, 4, 1000);
-    // HAL_Delay(100);
-
     if (HAL_SPI_Receive(&hspi1, rx_buffer, 4, HAL_MAX_DELAY) == HAL_OK)
     {
-//      HAL_Delay(100);
       if (strcmp(rx_buffer, "ping") == 0)
       {
         HAL_SPI_Transmit(&hspi1, tx_buffer, 4, HAL_MAX_DELAY);
-//        HAL_Delay(100);
       }
     }
     /* USER CODE END WHILE */
