@@ -50,7 +50,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const uint32_t POINTS_N = 1024;
+const uint32_t POINTS_N = 4096;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,8 +70,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
         adc2_complete = true;
     }
 }
-
-void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc) {}
 /* USER CODE END 0 */
 
 /**
@@ -111,29 +109,29 @@ int main(void)
   MX_ADC2_Init();
   MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  uint16_t adc1_raw[POINTS_N];
-  uint16_t adc2_raw[POINTS_N];
+//  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"daq\n", 4, 1000);
+
+  uint16_t adcs_raw[POINTS_N*2];
   data_point_t adc1_points[POINTS_N];
   data_point_t adc2_points[POINTS_N];
 
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adc1_raw, POINTS_N);
-  HAL_ADC_Start_DMA(&hadc2, (uint32_t *)adc2_raw, POINTS_N);
+  HAL_ADC_Start(&hadc2);
+  HAL_ADCEx_MultiModeStart_DMA(&hadc1, (uint32_t*)adcs_raw, POINTS_N*2);
 
   uint32_t start_time = plotter_get_time_us();
 
-  while (!adc1_complete || !adc2_complete)
+  while (!adc1_complete)
       ;
 
   uint32_t end_time = plotter_get_time_us();
 
-  HAL_ADC_Stop_DMA(&hadc1);
-  HAL_ADC_Stop_DMA(&hadc2);
+  HAL_ADCEx_MultiModeStop_DMA(&hadc1);
 
   for (size_t i = 0; i < POINTS_N; i++) {
       adc1_points[i].time = ~0;
       adc2_points[i].time = ~0;
-      adc1_points[i].value = adc1_raw[i];
-      adc2_points[i].value = adc2_raw[i];
+      adc1_points[i].value = adcs_raw[2 * i];
+      adc2_points[i].value = adcs_raw[2 * i + 1];
   }
 
   adc1_points[0].time = start_time;
