@@ -21,7 +21,6 @@
 #include "adc.h"
 #include "dma.h"
 #include "usart.h"
-#include "spi.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -50,25 +49,21 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const uint32_t POINTS_N = 4096;
+const uint32_t POINTS_N = 1024;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-bool adc1_complete = false;
-bool adc2_complete = false;
+bool adcs_complete = false;
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
-    if (hadc == &hadc1) {
-        adc1_complete = true;
-    } else if (hadc == &hadc2) {
-        adc2_complete = true;
-    }
+	adcs_complete = true;
 }
 /* USER CODE END 0 */
 
@@ -104,34 +99,42 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  MX_SPI1_Init();
+  MX_LPUART1_UART_Init();
   MX_ADC1_Init();
   MX_ADC2_Init();
-  MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
-//  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"daq\n", 4, 1000);
+  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#daq\n", 5, 1000);
 
-  uint16_t adcs_raw[POINTS_N*2];
+  uint32_t adcs_raw[POINTS_N];
+  memset(adcs_raw, 0, POINTS_N);
   data_point_t adc1_points[POINTS_N];
   data_point_t adc2_points[POINTS_N];
 
-  HAL_ADC_Start(&hadc2);
-  HAL_ADCEx_MultiModeStart_DMA(&hadc1, (uint32_t*)adcs_raw, POINTS_N*2);
+  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+  HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
+
+  if (HAL_ADC_Start(&hadc2) != HAL_OK) {
+	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc2_err\n", 9, 1000);
+  }
+  if (HAL_ADCEx_MultiModeStart_DMA(&hadc1, adcs_raw, POINTS_N) != HAL_OK) {
+	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc1_err\n", 9, 1000);
+  }
 
   uint32_t start_time = plotter_get_time_us();
 
-  while (!adc1_complete)
+  while (!adcs_complete)
       ;
 
   uint32_t end_time = plotter_get_time_us();
 
+  HAL_ADC_Stop(&hadc2);
   HAL_ADCEx_MultiModeStop_DMA(&hadc1);
 
   for (size_t i = 0; i < POINTS_N; i++) {
       adc1_points[i].time = ~0;
       adc2_points[i].time = ~0;
-      adc1_points[i].value = adcs_raw[2 * i];
-      adc2_points[i].value = adcs_raw[2 * i + 1];
+      adc1_points[i].value = adcs_raw[i] & 0xFFFF;
+      adc2_points[i].value = (adcs_raw[i] >> 16) & 0xFFFF;
   }
 
   adc1_points[0].time = start_time;
