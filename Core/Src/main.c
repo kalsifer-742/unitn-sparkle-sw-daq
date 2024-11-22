@@ -38,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define POINTS_N 4096
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,7 +49,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-const uint32_t POINTS_N = 1024;
+uint32_t adcs_raw[POINTS_N];
+data_point_t adc1_points[POINTS_N];
+data_point_t adc2_points[POINTS_N];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,6 +96,9 @@ int main(void)
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT->CYCCNT = 0;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+//
+//  while(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK);
+//  while(HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED) != HAL_OK);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -104,14 +109,6 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#daq\n", 5, 1000);
-
-  uint32_t adcs_raw[POINTS_N];
-  memset(adcs_raw, 0, POINTS_N);
-  data_point_t adc1_points[POINTS_N];
-  data_point_t adc2_points[POINTS_N];
-
-  HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-  HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
 
   if (HAL_ADC_Start(&hadc2) != HAL_OK) {
 	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc2_err\n", 9, 1000);
