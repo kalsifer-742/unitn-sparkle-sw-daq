@@ -38,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define POINTS_N 4096
+#define POINTS_N 2048
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,8 +50,12 @@
 
 /* USER CODE BEGIN PV */
 uint32_t adcs_raw[POINTS_N];
+uint32_t adc1_buffer[POINTS_N/2];
+uint32_t adc2_buffer[POINTS_N/2];
 data_point_t adc1_points[POINTS_N];
 data_point_t adc2_points[POINTS_N];
+uint32_t start_time;
+uint32_t end_time;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,13 +63,40 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
+void send_data(bool is_complete);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+bool adcs_half_complete = false;
 bool adcs_complete = false;
+
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
+	adcs_half_complete = true;
+}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	adcs_complete = true;
+}
+
+void send_data(bool is_complete) {
+	uint32_t start = is_complete ? POINTS_N / 2 : 0;
+	uint32_t end = is_complete ? POINTS_N : POINTS_N / 2;
+
+	for (size_t i = start; i < end; i++) {
+	  adc1_points[i].time = ~0;
+	  adc2_points[i].time = ~0;
+	  adc1_points[i].value = adcs_raw[i] & 0xFFFF;
+	  adc2_points[i].value = (adcs_raw[i] >> 16) & 0xFFFF;
+	}
+
+	adc1_points[0].time = start_time;
+	adc1_points[POINTS_N - 1].time = end_time;
+	adc2_points[0].time = start_time;
+	adc2_points[POINTS_N - 1].time = end_time;
+
+	plotter_send_signal("ADC1", adc1_points, POINTS_N/2);
+	plotter_send_signal("ADC2", adc2_points, POINTS_N/2);
 }
 /* USER CODE END 0 */
 
@@ -96,7 +127,7 @@ int main(void)
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
   DWT->CYCCNT = 0;
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-//
+
 //  while(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK);
 //  while(HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED) != HAL_OK);
   /* USER CODE END SysInit */
@@ -117,36 +148,32 @@ int main(void)
 	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc1_err\n", 9, 1000);
   }
 
-  uint32_t start_time = plotter_get_time_us();
-
-  while (!adcs_complete)
-      ;
-
-  uint32_t end_time = plotter_get_time_us();
-
-  HAL_ADC_Stop(&hadc2);
-  HAL_ADCEx_MultiModeStop_DMA(&hadc1);
-
-  for (size_t i = 0; i < POINTS_N; i++) {
-      adc1_points[i].time = ~0;
-      adc2_points[i].time = ~0;
-      adc1_points[i].value = adcs_raw[i] & 0xFFFF;
-      adc2_points[i].value = (adcs_raw[i] >> 16) & 0xFFFF;
-  }
-
-  adc1_points[0].time = start_time;
-  adc1_points[POINTS_N - 1].time = end_time;
-  adc2_points[0].time = start_time;
-  adc2_points[POINTS_N - 1].time = end_time;
-
-  plotter_send_signal("ADC1", adc1_points, POINTS_N);
-  plotter_send_signal("ADC2", adc2_points, POINTS_N);
+  start_time = plotter_get_time_us();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(plotter_get_time_us() > 3000000) {
+		  HAL_Delay(HAL_MAX_DELAY);
+	  }
+	  if(adcs_half_complete) {
+		  end_time = plotter_get_time_us();
+
+		  send_data(false);
+		  adcs_half_complete = false;
+
+		  start_time = plotter_get_time_us();
+	  }
+	  if(adcs_complete) {
+		  end_time = plotter_get_time_us();
+
+		  send_data(true);
+		  adcs_complete = false;
+
+		  start_time = plotter_get_time_us();
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
