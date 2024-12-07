@@ -1,3 +1,0 @@
-../Core/Lib/plotter.c:7:10:plotter_get_time_us	16	static
-../Core/Lib/plotter.c:13:6:plotter_transmit_data	64	dynamic
-../Core/Lib/plotter.c:28:6:plotter_send_signal	32	static
