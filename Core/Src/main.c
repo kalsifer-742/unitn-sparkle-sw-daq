@@ -39,6 +39,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define POINTS_N 2048
+#define POINTS_STORE_MUL 8
+#define POINTS_STORE_N (POINTS_STORE_MUL*POINTS_N)
+#define POINTS_STORE_TIMESTAMPS_N (POINTS_STORE_MUL*2+1)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,12 +53,11 @@
 
 /* USER CODE BEGIN PV */
 uint32_t adcs_raw[POINTS_N];
-uint32_t adc1_buffer[POINTS_N/2];
-uint32_t adc2_buffer[POINTS_N/2];
-data_point_t adc1_points[POINTS_N];
-data_point_t adc2_points[POINTS_N];
-uint32_t start_time;
-uint32_t end_time;
+
+uint32_t points_store[POINTS_STORE_N];
+size_t points_store_len = 0;
+uint32_t points_store_timestamps[POINTS_STORE_TIMESTAMPS_N];
+size_t points_store_timestamps_len = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,33 +72,40 @@ void send_data(bool is_complete);
 /* USER CODE BEGIN 0 */
 bool adcs_half_complete = false;
 bool adcs_complete = false;
+uint32_t adcs_half_complete_time = 0;
+uint32_t adcs_complete_time = 0;
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef *hadc) {
 	adcs_half_complete = true;
+	adcs_half_complete_time = plotter_get_time_us();
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 	adcs_complete = true;
+	adcs_complete_time = plotter_get_time_us();
 }
 
-void send_data(bool is_complete) {
-	uint32_t start = is_complete ? POINTS_N / 2 : 0;
-	uint32_t end = is_complete ? POINTS_N : POINTS_N / 2;
+static void store_data() {
+	uint32_t start = adcs_half_complete_time < adcs_complete_time ? POINTS_N / 2 : 0;
+	uint32_t end_time = adcs_complete_time > adcs_half_complete_time ? adcs_complete_time : adcs_half_complete_time;
 
-	for (size_t i = start; i < end; i++) {
-	  adc1_points[i].time = ~0;
-	  adc2_points[i].time = ~0;
-	  adc1_points[i].value = adcs_raw[i] & 0xFFFF;
-	  adc2_points[i].value = (adcs_raw[i] >> 16) & 0xFFFF;
+	if(points_store_timestamps_len < POINTS_STORE_TIMESTAMPS_N) {
+		points_store_timestamps[points_store_timestamps_len++] = end_time;
 	}
 
-	adc1_points[0].time = start_time;
-	adc1_points[POINTS_N - 1].time = end_time;
-	adc2_points[0].time = start_time;
-	adc2_points[POINTS_N - 1].time = end_time;
+	if (points_store_len < POINTS_STORE_N) {
+		memcpy(points_store+points_store_len, adcs_raw+start, (POINTS_N/2) * sizeof(uint32_t));
+		points_store_len += POINTS_N / 2;
+	}
+}
+static void send_points_store() {
+	const char* names[2] = {"ADC1", "ADC2"};
+	for(int i = 0; i < POINTS_STORE_MUL*2; i++) {
+		uint32_t start_time = points_store_timestamps[i];
+		uint32_t end_time = points_store_timestamps[i+1];
 
-	plotter_send_signal("ADC1", adc1_points, POINTS_N/2);
-	plotter_send_signal("ADC2", adc2_points, POINTS_N/2);
+		plotter_send_2_interleaved_u16_signals_lerp_time(names, (uint16_t*)(points_store + i * (POINTS_N / 2)), POINTS_N / 2, start_time, end_time);
+	}
 }
 /* USER CODE END 0 */
 
@@ -147,37 +156,28 @@ int main(void)
   if (HAL_ADCEx_MultiModeStart_DMA(&hadc1, adcs_raw, POINTS_N) != HAL_OK) {
 	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc1_err\n", 9, 1000);
   }
+  points_store_timestamps[points_store_timestamps_len++] = plotter_get_time_us();
 
-  start_time = plotter_get_time_us();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	  if(plotter_get_time_us() > 3000000) {
-		  HAL_Delay(HAL_MAX_DELAY);
-	  }
+//while (plotter_get_time_us() < 3000000) {
+  while (plotter_get_time_us() < 3000000 && points_store_len < POINTS_STORE_N) {
 	  if(adcs_half_complete) {
-		  end_time = plotter_get_time_us();
-
-		  send_data(false);
+		  store_data();
 		  adcs_half_complete = false;
-
-		  start_time = plotter_get_time_us();
 	  }
 	  if(adcs_complete) {
-		  end_time = plotter_get_time_us();
-
-		  send_data(true);
+		  store_data();
 		  adcs_complete = false;
-
-		  start_time = plotter_get_time_us();
 	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
+  send_points_store();
+  HAL_Delay(HAL_MAX_DELAY);
   /* USER CODE END 3 */
 }
 
