@@ -65,7 +65,6 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc);
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
-void send_data(bool is_complete);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -162,7 +161,6 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-//while (plotter_get_time_us() < 3000000) {
   while (plotter_get_time_us() < 3000000 && points_store_len < POINTS_STORE_N) {
 	  if(adcs_half_complete) {
 		  store_data();
@@ -177,7 +175,6 @@ int main(void)
     /* USER CODE BEGIN 3 */
   }
   send_points_store();
-  HAL_Delay(HAL_MAX_DELAY);
   /* USER CODE END 3 */
 }
 

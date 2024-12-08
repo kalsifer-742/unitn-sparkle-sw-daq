@@ -4,12 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 
-uint32_t plotter_get_time_us(void) {
-    uint32_t cycles = DWT->CYCCNT;
-    uint32_t us = cycles / 170; // clock is 170Mhz. us = cycles / clock * 1M
-    return us;
-}
-
+/*
+ * Legacy code
+ *
 static void plotter_transmit_data(data_point_t* data, size_t size) {
     const size_t buffer_size = 128;
     char buffer[buffer_size];
@@ -23,6 +20,24 @@ static void plotter_transmit_data(data_point_t* data, size_t size) {
         }
         HAL_UART_Transmit(&hlpuart1, (uint8_t *)buffer, len, 100);
     }
+}
+
+void plotter_send_signal(const char* name, data_point_t* data, size_t size) {
+
+    HAL_UART_Transmit(&hlpuart1, (uint8_t *)name, strlen(name), 100);
+    HAL_UART_Transmit(&hlpuart1, (uint8_t *)"\n", 1, 100);
+
+    plotter_transmit_data(data, size);
+
+    const char* end_msg = "END_OF_SIGNAL\n";
+    HAL_UART_Transmit(&hlpuart1, (uint8_t *)end_msg, strlen(end_msg), 100);
+}
+*/
+
+uint32_t plotter_get_time_us(void) {
+    uint32_t cycles = DWT->CYCCNT;
+    uint32_t us = cycles / 170; // clock is 170Mhz. us = cycles / clock * 1M
+    return us;
 }
 
 // stride is the distance between one element to be sent and the next; in number of elements (=sizeof uint32_t), NOT in bytes;
@@ -42,18 +57,6 @@ static void plotter_transmit_data_u16_lerp_time(uint16_t* data, size_t stride, s
     HAL_UART_Transmit(&hlpuart1, (uint8_t *)buffer, len, 100);
 }
 
-
-void plotter_send_signal(const char* name, data_point_t* data, size_t size) {
-
-    HAL_UART_Transmit(&hlpuart1, (uint8_t *)name, strlen(name), 100);
-    HAL_UART_Transmit(&hlpuart1, (uint8_t *)"\n", 1, 100);
-
-    plotter_transmit_data(data, size);
-
-    const char* end_msg = "END_OF_SIGNAL\n";
-    HAL_UART_Transmit(&hlpuart1, (uint8_t *)end_msg, strlen(end_msg), 100);
-}
-
 // size is the number of elements for each signal, NOT the size of data (neither in elements nor in bytes)
 void plotter_send_2_interleaved_u16_signals_lerp_time(const char** names, uint16_t* data, size_t size, uint32_t start_time, uint32_t end_time) {
 	for(int signal_idx = 0; signal_idx < 2; signal_idx++) {
@@ -61,7 +64,6 @@ void plotter_send_2_interleaved_u16_signals_lerp_time(const char** names, uint16
 		const char* name = names[signal_idx];
 		HAL_UART_Transmit(&hlpuart1, (uint8_t *)name, strlen(name), 100);
 		HAL_UART_Transmit(&hlpuart1, (uint8_t *)"\n", 1, 100);
-
 
 	    plotter_transmit_data_u16_lerp_time(data + signal_idx, 2, size, start_time, end_time);
 
