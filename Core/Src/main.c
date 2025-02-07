@@ -46,13 +46,13 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 uint32_t adcs_raw[POINTS_N];
+uint32_t acs[POINTS_N];
 
 uint32_t points_store[POINTS_STORE_N];
 size_t points_store_len = 0;
@@ -90,6 +90,15 @@ static void store_data() {
 
 	if(points_store_timestamps_len < POINTS_STORE_TIMESTAMPS_N) {
 		points_store_timestamps[points_store_timestamps_len++] = end_time;
+	}
+
+	for(int i = start; i < (POINTS_N/2); i++){
+		//reading the value of the pin PA10 using bit operations
+		//& 0x200, masks the 10th bit
+		//>> 9, shifts the reg so that the value is converted to 0 or to 1
+		if(((acs[i] & 0x200) >> 9) == 1){
+			adcs_raw[i] = 0;
+		}
 	}
 
 	if (points_store_len < POINTS_STORE_N) {
@@ -132,9 +141,9 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-  DWT->CYCCNT = 0;
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CYCCNT = 0;
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
 //  while(HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK);
 //  while(HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED) != HAL_OK);
@@ -147,34 +156,36 @@ int main(void)
   MX_ADC1_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#daq\n", 5, 1000);
+	HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#daq\n", 5, 1000);
 
-  if (HAL_ADC_Start(&hadc2) != HAL_OK) {
-	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc2_err\n", 9, 1000);
-  }
-  if (HAL_ADCEx_MultiModeStart_DMA(&hadc1, adcs_raw, POINTS_N) != HAL_OK) {
-	  HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc1_err\n", 9, 1000);
-  }
-  points_store_timestamps[points_store_timestamps_len++] = plotter_get_time_us();
+	if (HAL_ADC_Start(&hadc2) != HAL_OK) {
+	HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc2_err\n", 9, 1000);
+	}
+	if (HAL_ADCEx_MultiModeStart_DMA(&hadc1, adcs_raw, POINTS_N) != HAL_OK) {
+	HAL_UART_Transmit(&hlpuart1, (uint8_t*)"#adc1_err\n", 9, 1000);
+	}
+	points_store_timestamps[points_store_timestamps_len++] = plotter_get_time_us();
 
+	HAL_DMA_Start(&hdma_dma_generator0, (uint32_t)GPIOA->IDR, (uint32_t)&acs, POINTS_N);
+	HAL_DMAEx_EnableMuxRequestGenerator(&hdma_dma_generator0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (plotter_get_time_us() < 3000000 && points_store_len < POINTS_STORE_N) {
-	  if(adcs_half_complete) {
-		  store_data();
-		  adcs_half_complete = false;
-	  }
-	  if(adcs_complete) {
-		  store_data();
-		  adcs_complete = false;
-	  }
+	while (plotter_get_time_us() < 3000000 && points_store_len < POINTS_STORE_N) {
+		if(adcs_half_complete) {
+			store_data();
+			adcs_half_complete = false;
+		}
+		if(adcs_complete) {
+			store_data();
+			adcs_complete = false;
+		}
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
-  send_points_store();
+	send_points_store();
   /* USER CODE END 3 */
 }
 
